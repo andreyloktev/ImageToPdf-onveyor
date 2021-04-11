@@ -6,6 +6,7 @@
     using System.Linq;
     using System.Threading;
     using System.Threading.Tasks;
+    using ImageToPdfConveyor.Logger.Contracts;
     using ImageToPdfConveyor.ObjectModel.Contracts;
 
     using ConveyorRectangle = ImageToPdfConveyor.ObjectModel.Rectangle;
@@ -13,11 +14,20 @@
     internal sealed class ImageRepositoryService : IImageRepositoryService
     {
         private readonly string[] files;
+        private readonly ILogger logger;
 
-        public ImageRepositoryService(string path, string imageExtension)
+        public ImageRepositoryService(string path, string imageExtension, ILogger logger)
         {
-            files = Directory
-                .GetFiles(path, $"*.{imageExtension}");
+            try
+            {
+                files = Directory
+                    .GetFiles(path, $"*.{imageExtension}");
+            }
+            catch (Exception e)
+            {
+                logger.Error(e, $"Can not enumerate files in the directory {path}");
+                return;
+            }
 
             Array.Sort(files);
         }
@@ -40,7 +50,15 @@
                     .Take(take)
                     .Select(file =>
                     {
-                        return new Image(file);
+                        try
+                        {
+                            return new Image(file);
+                        }
+                        catch (Exception e)
+                        {
+                            logger.Error(e, $"Can not create image object for {file}");
+                            return null;
+                        }
                     })
                     .ToArray();
             });

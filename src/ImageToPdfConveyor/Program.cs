@@ -11,17 +11,17 @@
     using System.Collections.Generic;
     using System.Linq;
     using ImageToPdfConveyor.ObjectModel;
-
-    //using ImageToPdfConveyor.PdfClient.Logic;
-    //using ImageToPdfConveyor.PdfClient.ObjectModel.Model;
+    using Microsoft.Extensions.Configuration;
+    using Microsoft.Extensions.Configuration.NewtonsoftJson;
+    using ImageToPdfConveyor.ObjectModel.Settings;
+    using ImageToPdfConveyor.Logger.Extensions;
 
     internal sealed class Program
     {
         private static IServiceProvider serviceProvider;
-
         private static GetOffsetService offsetService = new GetOffsetService();
-
         private static int imagesCount = 0;
+        private static ConveyorOptions conveyorOptions;
 
         static void Main(string[] args)
         {
@@ -42,9 +42,19 @@
 
         private static void Configure()
         {
+            IConfigurationBuilder configurationBuilder = new ConfigurationBuilder();
+            configurationBuilder.Add(new NewtonsoftJsonConfigurationSource()
+            {
+                Path = "appsettings.json",
+            });
+
+            IConfiguration configuration = configurationBuilder.Build();
+
+            conveyorOptions = configuration.GetSection(nameof(ConveyorOptions)).Get<ConveyorOptions>() ?? new ConveyorOptions();
+
             serviceProvider = new ServiceCollection()
-                .AddImageRepository(@"F:\Работа\Pdfconveyor\фото", "jpg")
-                //.AddImageRepository(@"F:\PdfConveyor", "jpg")
+                .AddLogger(configuration)
+                .AddImageRepository(conveyorOptions.PathToImages, conveyorOptions.ImageFormat)
                 .AddPdfBuilder()
                 .BuildServiceProvider();
 
@@ -66,31 +76,24 @@
                 var images = await imageRepository.GetImages(skip: skip, take: 99);
 
                 int skipImages = 0;
-                int takeImages = 3;
+                int takeImages = conveyorOptions.AmountImagesInPdf;
 
                 do
                 {
                     imagesToProcess = images.Skip(skipImages).Take(takeImages).ToArray();
 
-                    foreach (var image in imagesToProcess)
-                    {
-                        var file = File.OpenWrite($"F:/PdfConveyor/{image.Name}");
-                        image.DataStream.CopyTo(file);
-                        file.Close();
-                    }
+                    var pdfDocument = new PdfDocument($"{conveyorOptions.BasePdfDocumentName}_{documnetNumber}", DocumentPageSize.A4);
+                    pdfDocument.AddPages(imagesToProcess
+                        .Select(image =>
+                        {
+                            return new PdfPage
+                            {
+                                DataStream = image.DataStream,
+                            };
+                        })
+                        .ToArray());
 
-                    //var pdfDocument = new PdfDocument($"result_{documnetNumber}", DocumentPageSize.A4);
-                    //pdfDocument.AddPages(imagesToProcess
-                    //    .Select(image =>
-                    //    {
-                    //        return new PdfPage
-                    //        {
-                    //            DataStream = image.DataStream,
-                    //        };
-                    //    })
-                    //    .ToArray());
-
-                    //pdfBuilder.BuildDocument(@"F:\PdfConveyor", pdfDocument);
+                    pdfBuilder.BuildDocument(conveyorOptions.OutputDirectory, pdfDocument);
 
                     documnetNumber++;
 

@@ -21,19 +21,19 @@
                     return RotateFlipType.Rotate180FlipNone;
 
                 case ImageOrientation.BottomLeft:
-                    return RotateFlipType.RotateNoneFlipY;
+                    return RotateFlipType.Rotate180FlipX;
 
                 case ImageOrientation.LeftTop:
                     return RotateFlipType.Rotate90FlipX;
 
                 case ImageOrientation.RightTop:
-                    return RotateFlipType.Rotate270FlipNone;
+                    return RotateFlipType.Rotate90FlipNone;
 
                 case ImageOrientation.RightBottom:
-                    return RotateFlipType.Rotate90FlipY;
+                    return RotateFlipType.Rotate270FlipX;
 
                 case ImageOrientation.LeftBottom:
-                    return RotateFlipType.Rotate90FlipNone;
+                    return RotateFlipType.Rotate270FlipNone;
 
             }
 

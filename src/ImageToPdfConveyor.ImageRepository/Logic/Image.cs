@@ -20,22 +20,14 @@
 
         private const int IntTypeId = 4;
 
-        private readonly string name;
-
         public Image(string filePath)
         {
-            name = Path.GetFileName(filePath);
+            Name = Path.GetFileName(filePath);
             image = DrawingImage.FromFile(filePath);
             Normalize();
         }
 
-        public string Name
-        {
-            get
-            {
-                return name;
-            }
-        }
+        public string Name { get; private set; }
 
         public void Scale(Rectangle rectangle)
         {
@@ -91,21 +83,13 @@
 
         private void Normalize()
         {
-            bool needRotate90CW = false;
-
-            // Determine orientation: Landscape or Portrait. After normalizstion, height and width can change place
-            if (image.Width > image.Height)
-            {
-                needRotate90CW = true;
-            }
-
             try
             {
-                var rotateFlip = GetCurrentImageOrientation(GetPropertyValue()).GetNormalizationRotation();
+                var property = image.GetPropertyItem(OrientationPropertyId);
+                var rotateFlip = GetCurrentImageOrientation(GetPropertyValue(property)).GetNormalizationRotation();
 
-                var peoperty = image.GetPropertyItem(OrientationPropertyId);
-                peoperty.Value = BitConverter.GetBytes((short)1);
-                image.SetPropertyItem(peoperty);
+                property.Value = BitConverter.GetBytes((short)1);
+                image.SetPropertyItem(property);
 
                 if (rotateFlip != RotateFlipType.RotateNoneFlipNone)
                 {
@@ -117,10 +101,10 @@
                 // Possible image does not have EXIF properties. May simple rotation
             }
 
-            //if (needRotate90CW)
-            //{
-            //    image.RotateFlip(RotateFlipType.Rotate90FlipNone);
-            //}
+            if (image.Width > image.Height)
+            {
+                image.RotateFlip(RotateFlipType.Rotate270FlipNone);
+            }
         }
 
         private ImageOrientation GetCurrentImageOrientation(int propertyValue)
@@ -148,46 +132,19 @@
             return ImageOrientation.Unknown;
         }
 
-        private int GetPropertyValue()
+        private int GetPropertyValue(PropertyItem property)
         {
-            var orientationProperty = image.GetPropertyItem(OrientationPropertyId);
-            switch (orientationProperty.Type)
+            switch (property.Type)
             {
                 case ShortTypeId:
-                    return GetShortArray(orientationProperty.Value, orientationProperty.Len)[0];
+                    return BitConverter.ToInt16(property.Value, 0);
 
                 case IntTypeId:
-                    return GetIntArray(orientationProperty.Value, orientationProperty.Len)[0];
+                    return BitConverter.ToInt32(property.Value, 0);
 
                 default:
                     throw new Exception("Unsupported image property value type");
             }
-        }
-
-        private short[] GetShortArray(byte[] value, int length)
-        {
-            var resultLength = length / sizeof(short);
-            short[] result = new short[resultLength];
-
-            for (int i = 0; i < resultLength; i++)
-            {
-                result[i] = (short)(value[i + 1] << 1 | value[i]);
-            }
-
-            return result;
-        }
-
-        private int[] GetIntArray(byte[] value, int length)
-        {
-            var resultLength = length / sizeof(int);
-            int[] result = new int[resultLength];
-
-            for (int i = 0; i < resultLength; i++)
-            {
-                result[i] = value[i + 3] << 3 | value[i + 2] << 2 | value[i + 1] << 1 | value[0];
-            }
-
-            return result;
         }
     }
 }

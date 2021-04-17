@@ -27,6 +27,8 @@
             Normalize();
         }
 
+        public void Dispose() => image.Dispose();
+
         public string Name { get; private set; }
 
         public void Scale(Rectangle rectangle)

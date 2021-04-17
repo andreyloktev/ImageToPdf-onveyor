@@ -10,7 +10,7 @@
     {
         int GetFilesAmount();
 
-        Task<IReadOnlyCollection<IImage>> GetImages(
+        Task<ImagesCollection> GetImages(
             Rectangle dstRectangle = null,
             int? skip = null,
             int take = 100,

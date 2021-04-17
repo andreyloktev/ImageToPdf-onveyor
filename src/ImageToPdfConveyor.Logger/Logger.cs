@@ -1,12 +1,10 @@
 ﻿namespace ImageToPdfConveyor.Logger
 {
     using System;
-    using System.Collections.Generic;
     using System.IO;
     using System.Text;
     using ImageToPdfConveyor.Logger.Contracts;
     using ImageToPdfConveyor.Logger.Models;
-    using Microsoft.Extensions.Options;
 
     internal sealed class Logger : ILogger
     {
@@ -24,40 +22,43 @@
             }
         }
 
-        public void Error(Exception e, string message)
+        public void Dispose()
         {
-            var internalMessage = $"[Error]{DateTime.UtcNow} {message}\n{e.StackTrace}";
-            WriteLogInternal(internalMessage);
+            file.Close();
+            file.Dispose();
         }
 
-        public void Info(string message)
+        public void Error(Exception e, string message, bool onlyConsole)
         {
-            var internalMessage = $"[Info]{DateTime.UtcNow} {message}";
-            WriteLogInternal(internalMessage);
+            WriteLogInternal($"[Error]{DateTime.UtcNow} ", $"{message}\n{e.StackTrace}", onlyConsole);
         }
 
-        public void Warning(string message)
+        public void Info(string message, bool onlyConsole)
         {
-            var internalMessage = $"[Warning]{DateTime.UtcNow} {message}";
-            WriteLogInternal(internalMessage);
+            WriteLogInternal($"[Info]{DateTime.UtcNow} ", message, onlyConsole);
         }
 
-        private void WriteLogInternal(string message)
+        public void Warning(string message, bool onlyConsole)
+        {
+            WriteLogInternal($"[Warning]{DateTime.UtcNow} ", message, onlyConsole);
+        }
+
+        private void WriteLogInternal(string prefix, string message, bool onlyConsole)
         {
             try
             {
-                var innerMessage = Encoding.UTF8.GetBytes(message);
-                if (file != null)
+                if (!onlyConsole && (file != null))
                 {
                     lock (file)
                     {
-                        file.Write(innerMessage, 0, innerMessage.Length);
+                        var msg = Encoding.UTF8.GetBytes(prefix + message);
+                        file.Write(msg, 0, msg.Length);
                     }
                 }
 
                 if (enableConsoleLogging)
                 {
-                    Console.WriteLine(innerMessage);
+                    Console.WriteLine(message);
                 }
             }
             catch (Exception)

@@ -2,12 +2,12 @@
 {
     using System;
 
-    public interface ILogger
+    public interface ILogger : IDisposable
     {
-        void Error(Exception e, string message);
+        void Error(Exception e, string message, bool onlyConsole = false);
 
-        void Info(string message);
+        void Info(string message, bool onlyConsole = false);
 
-        void Warning(string message);
+        void Warning(string message, bool onlyConsole = false);
     }
 }

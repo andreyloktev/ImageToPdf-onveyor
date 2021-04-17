@@ -7,6 +7,7 @@
     using System.Threading;
     using System.Threading.Tasks;
     using ImageToPdfConveyor.Logger.Contracts;
+    using ImageToPdfConveyor.ObjectModel;
     using ImageToPdfConveyor.ObjectModel.Contracts;
 
     using ConveyorRectangle = ImageToPdfConveyor.ObjectModel.Rectangle;
@@ -37,7 +38,7 @@
             return files.Length;
         }
 
-        public async Task<IReadOnlyCollection<IImage>> GetImages(
+        public async Task<ImagesCollection> GetImages(
             ConveyorRectangle dstRectangle,
             int? skip,
             int take,
@@ -45,7 +46,7 @@
         {
             var task = Task.Run(() =>
             {
-                return files
+                var collection = files
                     .Skip(skip ?? 0)
                     .Take(take)
                     .Select(file =>
@@ -60,7 +61,10 @@
                             return null;
                         }
                     })
+                    .Where(image => image != null)
                     .ToArray();
+
+                return new ImagesCollection(collection);
             });
 
             return await task;

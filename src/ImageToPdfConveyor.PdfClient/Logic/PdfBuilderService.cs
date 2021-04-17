@@ -1,9 +1,6 @@
 ﻿namespace ImageToPdfConveyor.PdfClient.Logic
 {
     using System;
-    using System.Collections.Generic;
-    using System.IO;
-    using System.Text;
     using EnsureThat;
     using ImageToPdfConveyor.ObjectModel;
     using ImageToPdfConveyor.ObjectModel.Contracts;
@@ -21,17 +18,15 @@
             EnsureArg.IsNotNullOrEmpty(directoryPath, nameof(directoryPath));
             EnsureArg.IsNotNull(document, nameof(document));
 
-            GlobalFontSettings.FontResolver = new FontResolver();
-
-            var pdfDocument = new PdfDocument();
+            using var pdfDocument = new PdfDocument();
 
             foreach (var documentPage in document.Pages)
             {
                 var page = pdfDocument.AddPage();
                 page.Size = PdfSharpCore.PageSize.A4;
 
-                var gfx = XGraphics.FromPdfPage(page);
-                XImage xImage = XImage.FromStream(() => documentPage.DataStream);
+                using var gfx = XGraphics.FromPdfPage(page);
+                using XImage xImage = XImage.FromStream(() => documentPage.DataStream);
 
                 gfx.DrawImage(xImage, 0, 0, page.Width.Point, page.Height.Point);
             }

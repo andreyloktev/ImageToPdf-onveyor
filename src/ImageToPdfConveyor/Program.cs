@@ -15,29 +15,44 @@
     using Microsoft.Extensions.Configuration.NewtonsoftJson;
     using ImageToPdfConveyor.ObjectModel.Settings;
     using ImageToPdfConveyor.Logger.Extensions;
+    using ImageToPdfConveyor.Logger.Contracts;
+    using System.Timers;
 
     internal sealed class Program
     {
         private static IServiceProvider serviceProvider;
-        private static GetOffsetService offsetService = new GetOffsetService();
+        private static ILogger logger;
+        private static GetNextDocumentService nextDocumentService;
         private static int imagesCount = 0;
         private static ConveyorOptions conveyorOptions;
+        private const int MaxBatchSize = 50;
+        private static Timer Timer = new Timer(1000);
+        private static object lockObject = new object();
+        private static int amountProcessedImages = 0;
 
         static void Main(string[] args)
         {
             Configure();
             using var scope = serviceProvider.CreateScope();
+            var imageRepository = scope.ServiceProvider.GetRequiredService<IImageRepositoryService>();
+            logger = scope.ServiceProvider.GetRequiredService<ILogger>();
 
             imagesCount = scope.ServiceProvider.GetRequiredService<IImageRepositoryService>().GetFilesAmount();
 
+            logger.Info($"Amount file to process: {imagesCount}");
+            SetTimer();
+
             List<Task> tasks = new List<Task>();
 
-            for (int i = 0; i < 1; i++)
+            for (int i = 0; i < 4; i++)
             {
                 tasks.Add(Task.Run(PdfBuilderProc));
             }
 
             Task.WaitAll(tasks.ToArray());
+            PrintPercents();
+
+            logger.Dispose();
         }
 
         private static void Configure()
@@ -51,6 +66,8 @@
             IConfiguration configuration = configurationBuilder.Build();
 
             conveyorOptions = configuration.GetSection(nameof(ConveyorOptions)).Get<ConveyorOptions>() ?? new ConveyorOptions();
+
+            nextDocumentService = new GetNextDocumentService(conveyorOptions.AmountImagesInPdf);
 
             serviceProvider = new ServiceCollection()
                 .AddLogger(configuration)
@@ -67,23 +84,22 @@
             var imageRepository = scope.ServiceProvider.GetRequiredService<IImageRepositoryService>();
             var pdfBuilder = scope.ServiceProvider.GetRequiredService<IPdfBuilderService>();
 
-            int documnetNumber = 1;
-            int skip = offsetService.GetNextOffset();
+            var nextDocument = nextDocumentService.GetNextDocument();
+            int take = conveyorOptions.AmountImagesInPdf;
 
             do
             {
-                IReadOnlyCollection<IImage> imagesToProcess = null;
-                var images = await imageRepository.GetImages(skip: skip, take: 99);
+                using var imagesCollection = await imageRepository.GetImages(skip: nextDocument.skip, take: take);
 
-                int skipImages = 0;
-                int takeImages = conveyorOptions.AmountImagesInPdf;
-
-                do
+                if (imagesCollection.Images.Count == 0)
                 {
-                    imagesToProcess = images.Skip(skipImages).Take(takeImages).ToArray();
+                    break;
+                }
 
-                    var pdfDocument = new PdfDocument($"{conveyorOptions.BasePdfDocumentName}_{documnetNumber}", DocumentPageSize.A4);
-                    pdfDocument.AddPages(imagesToProcess
+                try
+                {
+                    var pdfDocument = new PdfDocument($"{conveyorOptions.BasePdfDocumentName}_{nextDocument.documentNumber}", DocumentPageSize.A4);
+                    pdfDocument.AddPages(imagesCollection.Images
                         .Select(image =>
                         {
                             return new PdfPage
@@ -94,16 +110,37 @@
                         .ToArray());
 
                     pdfBuilder.BuildDocument(conveyorOptions.OutputDirectory, pdfDocument);
-
-                    documnetNumber++;
-
-                    skipImages += imagesToProcess.Count;
                 }
-                while (imagesToProcess.Count != 0);
+                catch (Exception e)
+                {
+                    logger.Error(e, "Can not create pdf document");
+                }
 
-                skip = offsetService.GetNextOffset();
+
+                lock (lockObject)
+                {
+                    amountProcessedImages += imagesCollection.Images.Count;
+                }
+
+                nextDocument = nextDocumentService.GetNextDocument();
             }
-            while (skip < imagesCount);
+            while (true);
+        }
+
+        private static void SetTimer()
+        {
+            // Hook up the Elapsed event for the timer. 
+            Timer.Elapsed += OnTimedEvent;
+            Timer.AutoReset = true;
+            Timer.Enabled = true;
+        }
+
+        private static void OnTimedEvent(object sender, ElapsedEventArgs e) => PrintPercents();
+
+        private static void PrintPercents()
+        {
+            var value = (int)((amountProcessedImages / (double)imagesCount) * 100);
+            Console.Write($"\rProcess: {value}%");
         }
     }
 }

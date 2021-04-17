@@ -4,25 +4,29 @@
     using System.Collections.Generic;
     using System.Text;
 
-    internal sealed class GetOffsetService
+    internal sealed class GetNextDocumentService
     {
         private int offset = 0;
 
+        private int documentNumber = 0;
+
         private readonly object lockObj = new object();
 
-        private readonly int blockSize = 99;
+        private readonly int blockSize;
 
-        public GetOffsetService()
+        public GetNextDocumentService(int blockSize)
         {
+            this.blockSize = blockSize;
         }
 
-        public int GetNextOffset()
+        public (int skip, int documentNumber) GetNextDocument()
         {
             lock (lockObj)
             {
+                documentNumber++;
                 var result = offset;
                 offset += blockSize;
-                return result;
+                return (result, documentNumber);
             }
         }
     }

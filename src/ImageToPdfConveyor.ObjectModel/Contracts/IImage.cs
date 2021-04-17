@@ -5,7 +5,7 @@
     using System.IO;
     using System.Text;
 
-    public interface IImage
+    public interface IImage : IDisposable
     {
         string Name { get; }
 

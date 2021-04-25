@@ -85,6 +85,8 @@
 
         private void Normalize()
         {
+            bool rotated = false;
+
             try
             {
                 var property = image.GetPropertyItem(OrientationPropertyId);
@@ -95,6 +97,7 @@
 
                 if (rotateFlip != RotateFlipType.RotateNoneFlipNone)
                 {
+                    rotated = true;
                     image.RotateFlip(rotateFlip);
                 }
             }
@@ -105,7 +108,7 @@
 
             if (image.Width > image.Height)
             {
-                image.RotateFlip(RotateFlipType.Rotate270FlipNone);
+                image.RotateFlip(rotated ? RotateFlipType.Rotate270FlipNone : RotateFlipType.Rotate90FlipNone);
             }
         }
 
